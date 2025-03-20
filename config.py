@@ -3,8 +3,9 @@
 import os
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file if not in production
+if os.environ.get('FLASK_ENV') != 'production':
+    load_dotenv()
 
 class Config:
     """Base configuration class."""
@@ -19,15 +20,19 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-key-not-for-production")
     
     # API configuration
-    PORT = int(os.environ.get("PORT", "5001").split('#')[0].strip())
+    PORT = int(os.environ.get("PORT", "5000"))
     
     @staticmethod
     def validate():
         """Validate that all required configuration values are present."""
+        missing_vars = []
         if not Config.SUPABASE_URL:
-            raise ValueError("SUPABASE_URL environment variable is required")
+            missing_vars.append("SUPABASE_URL")
         if not Config.SUPABASE_KEY:
-            raise ValueError("SUPABASE_KEY environment variable is required")
+            missing_vars.append("SUPABASE_KEY")
+        
+        if missing_vars:
+            raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
 
 
 class DevelopmentConfig(Config):
@@ -43,8 +48,12 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     """Production configuration."""
-    # Production-specific settings would go here
-    pass
+    DEBUG = False
+    TESTING = False
+    
+    def __init__(self):
+        if not self.SECRET_KEY or self.SECRET_KEY == "dev-key-not-for-production":
+            raise ValueError("Production environment requires a secure SECRET_KEY")
 
 
 # Dictionary of available configurations
@@ -55,4 +64,8 @@ config_by_name = {
 }
 
 # Get the active configuration based on the environment
-active_config = config_by_name.get(os.environ.get('FLASK_ENV', 'development'))
+env = os.environ.get('FLASK_ENV', 'development')
+active_config = config_by_name.get(env)
+
+if active_config is None:
+    raise ValueError(f"Invalid FLASK_ENV value: {env}. Must be one of: {', '.join(config_by_name.keys())}")
