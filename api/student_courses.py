@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 # Create Blueprint
-student_courses_bp = Blueprint('student_courses', __name__, url_prefix='/api/student/courses')
+student_courses_bp = Blueprint('student_courses', __name__, url_prefix='/api/student-courses')
 
 
 # Models for request validation
