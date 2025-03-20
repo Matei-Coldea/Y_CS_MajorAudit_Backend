@@ -539,6 +539,9 @@ yale-degree-audit/
 
 The application uses a PostgreSQL database with the following structure:
 
+https://docs.google.com/document/d/1NB3KsjMmYX4DS3ibNFB1wk3rresBxfEMYK4Wrq08TBw/edit?tab=t.0
+https://docs.google.com/document/d/1ZIA1XXF8_w1Nh0yC7caXWX4dWAY3P1PXAfbwgTO5NHo/edit?tab=t.0
+
 ### Core Student Data
 
 **Students**
