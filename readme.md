@@ -535,155 +535,6 @@ yale-degree-audit/
 
 5. Access the API at http://localhost:5000
 
-### Deploying to Heroku
-
-1. **Prerequisites**
-   - [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli) installed
-   - Heroku account
-   - Git repository initialized
-
-2. **Prepare the Application**
-
-   Create a `Procfile` in the root directory:
-   ```
-   web: gunicorn app:app
-   ```
-
-   Update `requirements.txt` to include Heroku-specific packages:
-   ```
-   gunicorn==21.2.0
-   psycopg2-binary==2.9.9
-   ```
-
-   Ensure your `app.py` uses environment variables for configuration:
-   ```python
-   port = int(os.environ.get("PORT", 5000))
-   app.run(host="0.0.0.0", port=port)
-   ```
-
-3. **Create Heroku Application**
-   ```bash
-   # Login to Heroku
-   heroku login
-
-   # Create new Heroku app
-   heroku create yale-degree-audit
-
-   # Add PostgreSQL addon
-   heroku addons:create heroku-postgresql:mini
-   ```
-
-4. **Configure Environment Variables**
-   ```bash
-   # Set required environment variables
-   heroku config:set SUPABASE_URL=your_supabase_url
-   heroku config:set SUPABASE_KEY=your_supabase_key
-   heroku config:set FLASK_ENV=production
-   heroku config:set SECRET_KEY=your_secret_key
-   ```
-
-5. **Deploy the Application**
-   ```bash
-   # Push code to Heroku
-   git push heroku main
-
-   # Ensure at least one instance is running
-   heroku ps:scale web=1
-   ```
-
-6. **Initialize the Database**
-   ```bash
-   # Connect to Heroku PostgreSQL
-   heroku pg:psql
-
-   # Run your database initialization script
-   \i migration/mock_database_init.sql
-   ```
-
-7. **Verify Deployment**
-   ```bash
-   # Open the application
-   heroku open
-
-   # Check application logs
-   heroku logs --tail
-   ```
-
-8. **Monitoring and Maintenance**
-   - Monitor application performance:
-     ```bash
-     heroku ps
-     heroku metrics:web
-     ```
-   - Check database status:
-     ```bash
-     heroku pg:info
-     ```
-   - Database backups:
-     ```bash
-     heroku pg:backups:capture
-     heroku pg:backups:download
-     ```
-
-9. **Troubleshooting**
-   - If the application crashes:
-     ```bash
-     heroku logs --tail
-     ```
-   - If database connections fail:
-     ```bash
-     heroku pg:diagnose
-     ```
-   - To restart the application:
-     ```bash
-     heroku restart
-     ```
-
-10. **Scaling (if needed)**
-    ```bash
-    # Scale web dynos
-    heroku ps:scale web=2
-
-    # Upgrade database plan
-    heroku addons:upgrade heroku-postgresql:standard-0
-    ```
-
-11. **Custom Domain (Optional)**
-    ```bash
-    # Add custom domain
-    heroku domains:add your-domain.com
-
-    # View SSL certificate status
-    heroku certs:auto
-    ```
-
-### Important Heroku Deployment Notes
-
-1. **Database Considerations**
-   - Heroku PostgreSQL has connection limits based on your plan
-   - Use connection pooling for better performance
-   - Regular backups are recommended
-
-2. **Performance Optimization**
-   - Enable caching where possible
-   - Optimize database queries
-   - Use appropriate dyno sizes
-
-3. **Security**
-   - All environment variables should be set through Heroku config
-   - Enable SSL/TLS
-   - Regular security updates
-
-4. **Monitoring**
-   - Set up Heroku application metrics
-   - Configure error tracking (e.g., Sentry)
-   - Regular log review
-
-5. **Cost Management**
-   - Monitor dyno and database usage
-   - Scale resources appropriately
-   - Set up billing alerts
-
 ## Database Schema
 
 The application uses a PostgreSQL database with the following structure:
@@ -870,8 +721,197 @@ https://docs.google.com/document/d/1ZIA1XXF8_w1Nh0yC7caXWX4dWAY3P1PXAfbwgTO5NHo/
 
 ### Adding New Features
 
-1. Cacheing
-2. Better login checking (just querying supabase table for login is not safe)
+1. Create a new branch for your feature:
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+2. Follow the project structure:
+   - Add new models in `models/`
+   - Add new repository methods in `repositories/`
+   - Implement business logic in `services/`
+   - Create API endpoints in `api/`
+
+3. Write tests for your changes:
+   ```bash
+   python -m pytest tests/
+   ```
+
+4. Submit a pull request with:
+   - Clear description of changes
+   - Test results
+   - Any database migrations
+   - Documentation updates
+
+### Code Style
+
+- Follow PEP 8 guidelines
+- Use type hints
+- Document functions and classes
+- Keep functions focused and small
+- Use meaningful variable names
+
+### Testing
+
+1. Run unit tests:
+   ```bash
+   python -m pytest tests/unit/
+   ```
+
+2. Run integration tests:
+   ```bash
+   python -m pytest tests/integration/
+   ```
+
+3. Check code coverage:
+   ```bash
+   python -m pytest --cov=app tests/
+   ```
+
+## Deployment
+
+### Heroku Deployment
+
+The API is deployed at: https://major-audit-api-c946fe6486c8.herokuapp.com/
+
+1. Install Heroku CLI:
+   ```bash
+   brew install heroku/brew/heroku
+   ```
+
+2. Login to Heroku:
+   ```bash
+   heroku login
+   ```
+
+3. Create Heroku app:
+   ```bash
+   heroku create major-audit-api
+   ```
+
+4. Set environment variables:
+   ```bash
+   heroku config:set FLASK_ENV=production
+   heroku config:set SECRET_KEY=your-secret-key
+   heroku config:set SUPABASE_URL=your-supabase-url
+   heroku config:set SUPABASE_KEY=your-supabase-key
+   ```
+
+5. Deploy:
+   ```bash
+   git push heroku main
+   ```
+
+### Environment Variables
+
+Required environment variables:
+- `FLASK_ENV`: Set to 'development' or 'production'
+- `SECRET_KEY`: Flask secret key
+- `SUPABASE_URL`: Supabase project URL
+- `SUPABASE_KEY`: Supabase API key
+- `PORT`: Port number (set by Heroku)
+
+## Monitoring and Logging
+
+### Application Monitoring
+
+1. Health Checks
+   - Endpoint: `/health`
+   - Monitors: Service status, database connection, Supabase connection
+   - Response time tracking
+
+2. Error Tracking
+   - Automatic error logging
+   - Stack traces for debugging
+   - Error categorization
+
+3. Performance Metrics
+   - Request duration
+   - Database query times
+   - Memory usage
+   - CPU utilization
+
+### Logging
+
+1. Log Levels
+   - ERROR: Application errors
+   - WARNING: Potential issues
+   - INFO: General operations
+   - DEBUG: Detailed debugging
+
+2. Log Format
+   ```
+   [TIMESTAMP] [LEVEL] [REQUEST_ID] Message
+   ```
+
+3. Log Storage
+   - Production: Heroku logging
+   - Development: Local files
+   - Log rotation enabled
+
+### Security
+
+1. Authentication
+   - NetID validation
+   - Session management
+   - Rate limiting
+
+2. Data Protection
+   - HTTPS enforcement
+   - Input validation
+   - SQL injection prevention
+   - XSS protection
+
+3. Access Control
+   - Role-based permissions
+   - API key management
+   - IP whitelisting
+
+## Future Improvements
+
+1. Technical Enhancements
+   - Implement caching for frequently accessed data
+   - Add WebSocket support for real-time updates
+   - Implement GraphQL API
+   - Add batch operations for better performance
+
+2. Feature Additions
+   - Course scheduling optimization
+   - Graduation path recommendations
+   - Integration with Yale Course Search
+   - Mobile app support
+   - PDF report generation
+
+3. Security Improvements
+   - OAuth 2.0 implementation
+   - Two-factor authentication
+   - Enhanced audit logging
+   - Automated security scanning
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests
+5. Submit a pull request
+
+For major changes:
+1. Open an issue first
+2. Discuss the proposed changes
+3. Get approval before proceeding
+
+## Support
+
+For support:
+1. Check the documentation
+2. Search existing issues
+3. Open a new issue if needed
+4. Contact: [Your Contact Information]
+
+## License
+
+[Add License Information]
 
 
 
