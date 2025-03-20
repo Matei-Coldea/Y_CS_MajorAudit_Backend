@@ -5,6 +5,8 @@ from typing import Dict, Any, List, Optional
 from repositories.student_repository import StudentRepository
 from repositories.major_repository import MajorRepository
 from repositories.course_repository import CourseRepository
+from repositories.distribution_repository import DistributionRepository
+from services.distribution_service import DistributionService
 from models.degree_audit import DegreeAuditResponse, MajorCompletionResult
 from utils.grade_utils import meets_min_grade, extract_course_level
 
@@ -14,7 +16,8 @@ class DegreeAuditService:
     
     def __init__(self, student_repository: StudentRepository, 
                  major_repository: MajorRepository,
-                 course_repository: CourseRepository):
+                 course_repository: CourseRepository,
+                 distribution_repository: DistributionRepository):
         """
         Initialize with repositories.
         
@@ -22,20 +25,27 @@ class DegreeAuditService:
             student_repository: Repository for student data
             major_repository: Repository for major data
             course_repository: Repository for course data
+            distribution_repository: Repository for distribution data
         """
         self.student_repo = student_repository
         self.major_repo = major_repository
         self.course_repo = course_repository
+        self.distribution_service = DistributionService(
+            distribution_repository,
+            student_repository,
+            course_repository
+        )
     
     def check_degree_completion(self, net_id: str) -> Dict[str, Any]:
         """
-        Check if a student has completed their major requirements.
+        Check if a student has completed their major requirements and distribution requirements.
         
         Args:
             net_id: The student's NetID
             
         Returns:
-            Dictionary with completion status and unfulfilled requirements
+            Dictionary with completion status, unfulfilled major requirements,
+            and distribution requirements status
             
         Raises:
             ValueError: If the student is not found or has no declared majors
@@ -71,15 +81,38 @@ class DegreeAuditService:
                         'groups': req['unfulfilled_groups']
                     })
         
-        # Return completion status and unfulfilled requirements
+        # Get distribution requirements status
+        distribution_status = self.distribution_service.get_student_distribution_status(student_id)
+        
+        # Check if all distribution requirements are met
+        distribution_completed = True
+        for year_progress in distribution_status['year_progress'].values():
+            if not year_progress['is_fulfilled']:
+                distribution_completed = False
+                break
+        
+        # Determine overall completion status
+        all_completed = all_completed and distribution_completed
         completion_status = "Completed" if all_completed else "Not Completed"
+        
+        # Build response
         response = {
-            'status': completion_status
+            'status': completion_status,
+            'major_requirements': {
+                'status': "Completed" if all_completed else "Not Completed"
+            },
+            'distribution_requirements': {
+                'status': "Completed" if distribution_completed else "Not Completed",
+                'current_year': distribution_status['current_year'],
+                'current_year_requirements_fulfilled': distribution_status['current_year_requirements_fulfilled'],
+                'year_progress': distribution_status['year_progress'],
+                'distribution_totals': distribution_status['distribution_totals']
+            }
         }
         
-        # Only include unfulfilled requirements if there are any
+        # Only include unfulfilled major requirements if there are any
         if not all_completed:
-            response['unfulfilled_requirements'] = unfulfilled_requirements
+            response['major_requirements']['unfulfilled_requirements'] = unfulfilled_requirements
         
         return response
     

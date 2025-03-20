@@ -4,26 +4,29 @@ from flask import Blueprint, request, jsonify, current_app
 from pydantic import ValidationError
 
 from services.distribution_service import DistributionService
-from utils.auth import auth_required  # If you have this
+from utils.auth import auth_required  
 
 
 # Create Blueprint
 distributions_bp = Blueprint('distributions', __name__, url_prefix='/api/distribution-requirements')
 
 
-@distributions_bp.route('/<string:net_id>', methods=['GET'])
+@distributions_bp.route('', methods=['GET'])
 @auth_required
-def get_distribution_requirements(net_id):
+def get_distribution_requirements():
     """
     Get detailed distribution requirement status for a student.
     
     Headers:
-        X-Student-NetID: The student's NetID
+        X-Student-NetID: The student's NetID (required)
         
     Returns:
         JSON response with distribution requirement status by year
     """
     try:
+        # Get student NetID from header
+        net_id = request.headers.get('X-Student-NetID')
+        
         # Get student info
         student_info = current_app.student_service.get_student_info(net_id)
         student_id = student_info['student']['student_id']
@@ -45,14 +48,14 @@ def get_distribution_requirements(net_id):
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
-@distributions_bp.route('/<string:net_id>/<string:year>', methods=['GET'])
+@distributions_bp.route('/<string:year>', methods=['GET'])
 @auth_required
-def get_distribution_requirements_by_year(net_id, year):
+def get_distribution_requirements_by_year(year):
     """
     Get distribution requirement status for a student for a specific academic year.
     
     Headers:
-        X-Student-NetID: The student's NetID
+        X-Student-NetID: The student's NetID (required)
         
     URL Parameters:
         year: The academic year to check (Freshman, Sophomore, Junior, Senior)
@@ -69,6 +72,9 @@ def get_distribution_requirements_by_year(net_id, year):
         }), 400
     
     try:
+        # Get student NetID from header
+        net_id = request.headers.get('X-Student-NetID')
+        
         # Get student info
         student_info = current_app.student_service.get_student_info(net_id)
         student_id = student_info['student']['student_id']

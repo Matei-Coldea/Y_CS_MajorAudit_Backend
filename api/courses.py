@@ -7,7 +7,7 @@ from services.course_service import CourseService
 
 
 # Create Blueprint
-courses_bp = Blueprint('courses', __name__, url_prefix='/api/courses')
+courses_bp = Blueprint('courses', __name__, url_prefix='/api/course')
 
 
 @courses_bp.route('', methods=['GET'])

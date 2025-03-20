@@ -10,18 +10,21 @@ from services.student_service import StudentService
 students_bp = Blueprint('students', __name__, url_prefix='/api/students')
 
 
-@students_bp.route('/<string:net_id>', methods=['GET'])
-def get_student_info(net_id):
+@students_bp.route('', methods=['GET'])
+def get_student_info():
     """
     Get information about a specific student.
     
-    Args:
-        net_id: The student's NetID
+    Headers:
+        X-Student-NetID: The student's NetID (required)
         
     Returns:
         JSON response with student information
     """
     try:
+        # Get student NetID from header
+        net_id = request.headers.get('X-Student-NetID')
+        
         # Get the student service from the app context
         student_service = current_app.student_service
         
@@ -43,18 +46,24 @@ def get_student_info(net_id):
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
-@students_bp.route('/<string:net_id>/enrollments', methods=['GET'])
-def get_student_enrollments(net_id):
+@students_bp.route('/enrollments', methods=['GET'])
+def get_student_enrollments():
     """
     Get all course enrollments for a student.
     
-    Args:
-        net_id: The student's NetID
+    Headers:
+        X-Student-NetID: The student's NetID (required)
+        
+    Query Parameters:
+        status: Optional filter for enrollment status
         
     Returns:
         JSON response with student enrollments
     """
     try:
+        # Get student NetID from header
+        net_id = request.headers.get('X-Student-NetID')
+        
         # Get the student service from the app context
         student_service = current_app.student_service
         
@@ -84,18 +93,21 @@ def get_student_enrollments(net_id):
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
-@students_bp.route('/<string:net_id>/gpa', methods=['GET'])
-def get_student_gpa(net_id):
+@students_bp.route('/gpa', methods=['GET'])
+def get_student_gpa():
     """
     Calculate the GPA for a student.
     
-    Args:
-        net_id: The student's NetID
+    Headers:
+        X-Student-NetID: The student's NetID (required)
         
     Returns:
         JSON response with student GPA
     """
     try:
+        # Get student NetID from header
+        net_id = request.headers.get('X-Student-NetID')
+        
         # Get the student service from the app context
         student_service = current_app.student_service
         

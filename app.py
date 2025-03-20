@@ -7,7 +7,7 @@ from supabase import create_client
 
 from config import active_config
 from api import blueprints
-from repositories import StudentRepository, MajorRepository, CourseRepository , DistributionRepository
+from repositories import StudentRepository, MajorRepository, CourseRepository, DistributionRepository
 from services import StudentService, MajorService, CourseService, DegreeAuditService, DistributionService
 
 
@@ -59,8 +59,13 @@ def create_app(config=None):
     app.student_service = StudentService(student_repo, course_repo)
     app.major_service = MajorService(major_repo, course_repo)
     app.course_service = CourseService(course_repo)
-    app.degree_audit_service = DegreeAuditService(student_repo, major_repo, course_repo)
-    app.distribution_service = DistributionService(  # Add this block
+    app.degree_audit_service = DegreeAuditService(
+        student_repo,
+        major_repo,
+        course_repo,
+        distribution_repo
+    )
+    app.distribution_service = DistributionService(
         distribution_repo,
         student_repo,
         course_repo

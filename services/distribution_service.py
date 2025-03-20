@@ -1,6 +1,6 @@
 """Service for distribution requirement functionality."""
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Set, Tuple
 from datetime import datetime
 
 from repositories.distribution_repository import DistributionRepository
@@ -109,6 +109,64 @@ class DistributionService:
         else:
             return "Senior"
     
+    def _optimize_distribution_assignments(
+        self,
+        courses_with_distributions: List[Tuple[int, List[str]]],
+        requirements: Dict[str, int]
+    ) -> Dict[int, str]:
+        """
+        Optimize how courses are assigned to fulfill distribution requirements.
+        
+        Args:
+            courses_with_distributions: List of tuples (course_id, list of possible distribution codes)
+            requirements: Dictionary of {distribution_code: number_required}
+            
+        Returns:
+            Dictionary mapping course_id to assigned distribution code
+        """
+        # Copy requirements to track remaining needs
+        remaining_requirements = requirements.copy()
+        
+        # Track which distribution has been assigned to each course
+        assignments = {}
+        
+        # First pass: Handle courses with only one distribution type
+        for course_id, dist_codes in courses_with_distributions:
+            if len(dist_codes) == 1 and dist_codes[0] in remaining_requirements:
+                code = dist_codes[0]
+                if remaining_requirements[code] > 0:
+                    assignments[course_id] = code
+                    remaining_requirements[code] -= 1
+        
+        # Second pass: Handle courses with multiple distribution types
+        # Sort courses by number of distribution options (fewer options first)
+        multi_dist_courses = [
+            (course_id, dist_codes) 
+            for course_id, dist_codes in courses_with_distributions 
+            if len(dist_codes) > 1 and course_id not in assignments
+        ]
+        multi_dist_courses.sort(key=lambda x: len(x[1]))
+        
+        for course_id, dist_codes in multi_dist_courses:
+            # Find the distribution type with highest remaining need
+            best_code = None
+            highest_need = -1
+            
+            for code in dist_codes:
+                if code in remaining_requirements and remaining_requirements[code] > highest_need:
+                    best_code = code
+                    highest_need = remaining_requirements[code]
+            
+            # If we found a needed distribution type, assign it
+            if best_code and highest_need > 0:
+                assignments[course_id] = best_code
+                remaining_requirements[best_code] -= 1
+            # If no specific need, assign to first available type
+            elif not best_code and dist_codes:
+                assignments[course_id] = dist_codes[0]
+        
+        return assignments
+
     def get_student_distribution_status(self, student_id: int) -> Dict[str, Any]:
         """
         Get a student's distribution requirement status by year.
@@ -126,23 +184,23 @@ class DistributionService:
         # Get completed courses
         enrollments = self.student_repo.get_course_enrollments(student_id, "Completed")
         
-        # Track fulfilled distributions
-        fulfilled_counts = {code: 0 for code in self.distribution_types.keys()}
-        
-        # Check each completed course
+        # Collect courses and their possible distribution types
+        courses_with_distributions = []
         for enrollment in enrollments:
             course_id = enrollment['course_id']
             course = self.course_repo.get_by_id(course_id)
             
             if course and course.get('distribution'):
-                # Split the distribution string and increment counters
-                distribution_codes = course['distribution'].split(',')
-                for code in distribution_codes:
-                    code = code.strip()
-                    if code in fulfilled_counts:
-                        fulfilled_counts[code] += 1
+                dist_codes = [code.strip() for code in course['distribution'].split(',')]
+                courses_with_distributions.append((course_id, dist_codes))
         
-        # Check progress against each year's requirements
+        # Initialize fulfilled counts for all distribution types
+        fulfilled_counts = {code: 0 for code in self.distribution_types.keys()}
+        
+        # Track which distribution requirement each course fulfills
+        course_assignments = {}
+        
+        # Process requirements year by year
         year_progress = {}
         for year, year_config in self.requirements_by_year.items():
             requirements = year_config["requirements"]
@@ -150,25 +208,27 @@ class DistributionService:
             # Get special rules for this year
             year_rules = self.year_rules.get(year, [])
             
-            # Default to requiring all categories
-            min_categories = len(requirements)
+            # Optimize distribution assignments for this year's requirements
+            year_assignments = self._optimize_distribution_assignments(
+                courses_with_distributions,
+                {code: req for code, req in requirements.items()}
+            )
             
-            # Check for special MIN_CATEGORIES rule
+            # Update fulfilled counts based on assignments
+            for course_id, assigned_code in year_assignments.items():
+                if assigned_code in fulfilled_counts:
+                    fulfilled_counts[assigned_code] += 1
+                    course_assignments[course_id] = assigned_code
+            
+            # Calculate fulfillment status
+            min_categories = len(requirements)
             for rule in year_rules:
                 if rule['rule_type'] == 'MIN_CATEGORIES':
                     min_categories = rule['value']
-                    rule_category = rule.get('category')
-                    
-                    # If rule applies to a specific category (e.g., only skills)
-                    if rule_category:
-                        # We'd need to filter which categories to count
-                        pass
             
-            # Count fulfilled categories for this year
             categories_fulfilled = sum(1 for code, required in requirements.items() 
-                                     if fulfilled_counts[code] >= required)
+                                    if fulfilled_counts[code] >= required)
             
-            # Check if this year's requirements are met
             is_fulfilled = categories_fulfilled >= min_categories
             
             # Create year progress entry
@@ -182,15 +242,19 @@ class DistributionService:
                         "name": self.distribution_types[code]['name'],
                         "fulfilled": fulfilled_counts[code],
                         "required": req,
-                        "is_complete": fulfilled_counts[code] >= req
+                        "is_complete": fulfilled_counts[code] >= req,
+                        "courses": [
+                            course_id for course_id, assigned_code 
+                            in course_assignments.items() 
+                            if assigned_code == code
+                        ]
                     } for code, req in requirements.items()
                 }
             }
         
-        # Determine overall progress based on expectations for current year
+        # Determine overall progress
         current_year_fulfilled = year_progress[current_year_label]["is_fulfilled"]
         
-        # Create detailed response
         results = {
             "current_year": current_year_label,
             "current_year_requirements_fulfilled": current_year_fulfilled,
@@ -199,7 +263,12 @@ class DistributionService:
                 code: {
                     "name": self.distribution_types[code]['name'],
                     "completed_courses": fulfilled_counts[code],
-                    "graduation_requirement": self.requirements_by_year["Senior"]["requirements"][code]
+                    "graduation_requirement": self.requirements_by_year["Senior"]["requirements"][code],
+                    "courses": [
+                        course_id for course_id, assigned_code 
+                        in course_assignments.items() 
+                        if assigned_code == code
+                    ]
                 } for code in self.distribution_types.keys()
             }
         }

@@ -12,7 +12,7 @@ All endpoints (except `/health`) require authentication via the `X-Student-NetID
 Example request:
 ```bash
 curl -X GET \
-  'http://localhost:5000/api/students/abc123' \
+  'http://localhost:5000/api/student' \
   -H 'X-Student-NetID: abc123'
 ```
 
@@ -60,11 +60,11 @@ yale-degree-audit/
 │
 ├── api/                       # API routes
 │   ├── __init__.py
-│   ├── degree_audit.py        # Degree audit endpoints
-│   ├── majors.py              # Major-related endpoints
-│   ├── courses.py             # Course-related endpoints
-│   ├── students.py            # Student-related endpoints
-│   └── distributions.py       # Distribution requirements endpoints
+│   ├── degree_audit.py        # Degree audit endpoints (/api/degree-audit)
+│   ├── majors.py              # Major-related endpoints (/api/major/*)
+│   ├── courses.py             # Course-related endpoints (/api/course/*)
+│   ├── students.py            # Student-related endpoints (/api/student/*)
+│   └── distributions.py       # Distribution requirements endpoints (/api/distribution-requirement/*)
 │
 ├── models/                    # Pydantic models (schemas)
 │   ├── __init__.py
@@ -102,67 +102,382 @@ yale-degree-audit/
 - `GET /health` - Check if the service is running
   - No authentication required
   - Returns service status and name
+  
+  Example response:
+  ```json
+  {
+    "status": "healthy",
+    "service": "Yale Degree Audit API",
+    "version": "1.0.0"
+  }
+  ```
 
 ### Degree Audit
 
 - `GET /api/degree-audit` - Check if a student has completed their major requirements
   - **Required Header**: `X-Student-NetID`
   - Returns completion status and unfulfilled requirements
+  
+  Example response for student 'abc123' (Computer Science major):
+  ```json
+  {
+    "student_id": "abc123",
+    "major": {
+      "name": "Computer Science",
+      "requirements": {
+        "prerequisites": {
+          "completed": true,
+          "courses": ["CPSC 112", "CPSC 201", "MATH 112"]
+        },
+        "core": {
+          "completed": false,
+          "courses": {
+            "completed": ["CPSC 223", "CPSC 323"],
+            "remaining": ["CPSC 365"]
+          }
+        },
+        "electives": {
+          "completed": false,
+          "courses": {
+            "completed": ["CPSC 419"],
+            "remaining_count": 5
+          }
+        }
+      }
+    },
+    "distribution_requirements": {
+      "year": "Sophomore",
+      "status": "In Progress",
+      "details": {
+        "skills": {
+          "QR": {"required": 2, "completed": 2},
+          "WR": {"required": 2, "completed": 1},
+          "L": {"required": 1, "completed": 0}
+        },
+        "disciplinary": {
+          "Hu": {"required": 2, "completed": 1},
+          "Sc": {"required": 2, "completed": 2},
+          "So": {"required": 2, "completed": 1}
+        }
+      }
+    }
+  }
+  ```
 
 ### Distribution Requirements
 
-- `GET /api/distribution-requirements/{net_id}` - Get a student's overall distribution requirements status
+- `GET /api/distribution-requirement` - Get a student's overall distribution requirements status
   - **Required Header**: `X-Student-NetID`
-  - Returns:
-    - Current year and fulfillment status
-    - Progress for each distribution category
-    - Year-specific requirements and completion status
-    - Total distribution requirements for graduation
+  
+  Example response for student 'abc123':
+  ```json
+  {
+    "student_id": "abc123",
+    "current_year": "Sophomore",
+    "overall_status": {
+      "skills": {
+        "QR": {
+          "required": 2,
+          "completed": 2,
+          "courses": ["CPSC 112", "MATH 112"]
+        },
+        "WR": {
+          "required": 2,
+          "completed": 1,
+          "courses": ["ENGL 114"]
+        },
+        "L": {
+          "required": 1,
+          "completed": 0,
+          "courses": []
+        }
+      },
+      "disciplinary": {
+        "Hu": {
+          "required": 2,
+          "completed": 1,
+          "courses": ["ENGL 115"]
+        },
+        "Sc": {
+          "required": 2,
+          "completed": 2,
+          "courses": ["CPSC 201", "CPSC 223"]
+        },
+        "So": {
+          "required": 2,
+          "completed": 1,
+          "courses": ["PLSC 101"]
+        }
+      }
+    }
+  }
+  ```
 
-- `GET /api/distribution-requirements/{net_id}/{year}` - Get a student's distribution requirements for a specific year
+- `GET /api/distribution-requirement/{year}` - Get requirements for a specific year
   - **Required Header**: `X-Student-NetID`
-  - Year must be one of: "Freshman", "Sophomore", "Junior", "Senior"
-  - Returns detailed status for the specified academic year
+  
+  Example response for student 'abc123', year 'Freshman':
+  ```json
+  {
+    "student_id": "abc123",
+    "year": "Freshman",
+    "requirements": {
+      "rule": "Complete courses in 2 of 3 skills categories",
+      "progress": {
+        "QR": {
+          "required": 1,
+          "completed": 1,
+          "courses": ["CPSC 112"]
+        },
+        "WR": {
+          "required": 1,
+          "completed": 1,
+          "courses": ["ENGL 114"]
+        },
+        "L": {
+          "required": 1,
+          "completed": 0,
+          "courses": []
+        }
+      },
+      "status": "Completed",
+      "details": "Completed 2 of 3 required skills categories (QR, WR)"
+    }
+  }
+  ```
 
 ### Majors
 
-- `GET /api/majors` - Get a list of all available majors
+- `GET /api/major` - Get all available majors
   - **Required Header**: `X-Student-NetID`
-- `GET /api/majors/{major_id}` - Get detailed information about a specific major
+  
+  Example response:
+  ```json
+  {
+    "majors": [
+      {
+        "major_id": 101,
+        "major_name": "Computer Science",
+        "major_code": "CPSC",
+        "department": "Department of Computer Science",
+        "description": "The Computer Science major is designed to develop skills in all major areas of computer science while permitting flexibility in exploring particular areas of interest."
+      },
+      {
+        "major_id": 102,
+        "major_name": "English Language and Literature",
+        "major_code": "ENGL",
+        "department": "Department of English",
+        "description": "The English major offers a rich and diverse curriculum exploring the history of literature written in English and introducing students to a variety of methods for critical analysis and interpretation."
+      }
+    ]
+  }
+  ```
+
+- `GET /api/major/{major_id}/requirements` - Get major requirements
   - **Required Header**: `X-Student-NetID`
-- `GET /api/majors/{major_id}/requirements` - Get all requirements for a specific major
-  - **Required Header**: `X-Student-NetID`
-  - Optional `catalog_year` query parameter
-- `GET /api/majors/{major_id}/courses` - Get all courses that can fulfill requirements for a specific major
-  - **Required Header**: `X-Student-NetID`
-  - Optional `type` query parameter to filter by requirement type
+  
+  Example response for Computer Science (major_id: 101):
+  ```json
+  {
+    "major_name": "Computer Science",
+    "catalog_year": 2023,
+    "requirements": {
+      "prerequisites": {
+        "name": "Prerequisites",
+        "courses": [
+          {
+            "code": "CPSC 112",
+            "name": "Introduction to Programming"
+          },
+          {
+            "code": "CPSC 201",
+            "name": "Introduction to Computer Science"
+          },
+          {
+            "code": "MATH 112",
+            "name": "Calculus I"
+          }
+        ]
+      },
+      "core": {
+        "name": "Core Requirements",
+        "courses": [
+          {
+            "code": "CPSC 223",
+            "name": "Data Structures and Programming Techniques"
+          },
+          {
+            "code": "CPSC 323",
+            "name": "Systems Programming and Computer Organization"
+          },
+          {
+            "code": "CPSC 365",
+            "name": "Design and Analysis of Algorithms"
+          }
+        ]
+      },
+      "electives": {
+        "name": "Advanced Electives",
+        "min_courses": 6,
+        "rules": [
+          "At least 4 courses must be at 400-level or above",
+          "At least one theory course is required"
+        ]
+      }
+    }
+  }
+  ```
 
 ### Courses
 
-- `GET /api/courses` - Get a list of all courses with optional filtering
+- `GET /api/course` - Get list of courses
   - **Required Header**: `X-Student-NetID`
-  - Optional `subject_code` and `distribution` query parameters
-  - Pagination with `page` and `per_page` parameters
-- `GET /api/courses/{course_id}` - Get detailed information about a specific course
+  
+  Example response:
+  ```json
+  {
+    "page": 1,
+    "per_page": 2,
+    "total": 24,
+    "courses": [
+      {
+        "course_id": 401,
+        "subject_code": "CPSC",
+        "course_number": "112",
+        "course_title": "Introduction to Programming",
+        "description": "An introduction to the concepts, techniques, and applications of computer programming and software development.",
+        "credits": 1.0,
+        "distribution": "QR"
+      },
+      {
+        "course_id": 402,
+        "subject_code": "CPSC",
+        "course_number": "201",
+        "course_title": "Introduction to Computer Science",
+        "description": "Introduction to the concepts and techniques of computer science.",
+        "credits": 1.0,
+        "distribution": "QR"
+      }
+    ]
+  }
+  ```
+
+- `GET /api/course/{course_id}` - Get course details
   - **Required Header**: `X-Student-NetID`
-- `GET /api/courses/search` - Search for courses by title, subject code, or course number
-  - **Required Header**: `X-Student-NetID`
-  - Required `q` query parameter
-  - Optional `limit` parameter
-- `GET /api/courses/subject/{subject_code}` - Get all courses for a specific subject
-  - **Required Header**: `X-Student-NetID`
-- `GET /api/courses/distribution/{distribution}` - Get all courses that fulfill a specific distribution requirement
-  - **Required Header**: `X-Student-NetID`
+  
+  Example response for CPSC 223 (course_id: 406):
+  ```json
+  {
+    "course_id": 406,
+    "subject_code": "CPSC",
+    "course_number": "223",
+    "course_title": "Data Structures and Programming Techniques",
+    "description": "Organization of data, algorithms, techniques, and classes.",
+    "credits": 1.0,
+    "distribution": "QR",
+    "prerequisites": [
+      {
+        "course_id": 401,
+        "code": "CPSC 112",
+        "title": "Introduction to Programming"
+      },
+      {
+        "course_id": 402,
+        "code": "CPSC 201",
+        "title": "Introduction to Computer Science"
+      }
+    ]
+  }
+  ```
 
 ### Students
 
-- `GET /api/students/{net_id}` - Get information about a specific student
+- `GET /api/student` - Get student information
   - **Required Header**: `X-Student-NetID`
-- `GET /api/students/{net_id}/enrollments` - Get all course enrollments for a student
+  
+  Example response for 'abc123':
+  ```json
+  {
+    "student_id": 1001,
+    "net_id": "abc123",
+    "first_name": "Alice",
+    "last_name": "Brown",
+    "class_year": 2026,
+    "email": "alice.brown@yale.edu",
+    "majors": [
+      {
+        "major_name": "Computer Science",
+        "is_primary": true,
+        "declaration_date": "2023-05-15"
+      }
+    ]
+  }
+  ```
+
+- `GET /api/student/enrollments` - Get student's course enrollments
   - **Required Header**: `X-Student-NetID`
-  - Optional `status` query parameter
-- `GET /api/students/{net_id}/gpa` - Calculate the GPA for a student
+  
+  Example response for 'abc123':
+  ```json
+  {
+    "student_id": "abc123",
+    "enrollments": {
+      "completed": [
+        {
+          "course_code": "CPSC 112",
+          "title": "Introduction to Programming",
+          "term": "Fall 2022",
+          "grade": "A",
+          "credits": 1.0
+        },
+        {
+          "course_code": "MATH 112",
+          "title": "Calculus I",
+          "term": "Fall 2022",
+          "grade": "A-",
+          "credits": 1.0
+        }
+      ],
+      "current": [
+        {
+          "course_code": "CPSC 414",
+          "title": "Web Programming",
+          "term": "Fall 2024",
+          "status": "Enrolled"
+        },
+        {
+          "course_code": "CPSC 408",
+          "title": "Algorithms",
+          "term": "Fall 2024",
+          "status": "Enrolled"
+        }
+      ]
+    }
+  }
+  ```
+
+- `GET /api/student/gpa` - Get student's GPA
   - **Required Header**: `X-Student-NetID`
+  
+  Example response for 'abc123':
+  ```json
+  {
+    "student_id": "abc123",
+    "overall_gpa": 3.83,
+    "by_term": [
+      {
+        "term": "Fall 2022",
+        "gpa": 4.0,
+        "credits": 2.0
+      },
+      {
+        "term": "Spring 2023",
+        "gpa": 3.67,
+        "credits": 2.0
+      }
+    ]
+  }
+  ```
 
 ## Setup and Installation
 
@@ -222,46 +537,189 @@ yale-degree-audit/
 
 ## Database Schema
 
-The application uses the following database tables:
+The application uses a PostgreSQL database with the following structure:
 
-- Students - Core data about each Yale student
-- Majors - High-level table for each major offered
-- MajorVersions - Allows multiple versions of a major
-- StudentMajors - Links a student to a specific version of a major
-- Courses - Catalog of Yale courses
-- StudentCourseEnrollments - Which students took which courses
-- StudentCoursePlans - Lets students plan future courses
-- MajorRequirements - Top-level requirements for majors
-- RequirementGroups - Subdivide requirements into groups
-- RequirementGroupCourses - Maps groups to courses
-- RequirementRules - For advanced logic requirements
-- CoursePrerequisites - Tracks prerequisites for courses
-- EquivalenceGroups - Defines clusters of equivalent courses
+### Core Student Data
 
-New tables for distribution requirements:
+**Students**
+- Primary table for student information
+- Fields:
+  - `student_id` (PK): Unique identifier
+  - `net_id`: Yale NetID (unique)
+  - `first_name`, `last_name`: Student's name
+  - `class_year`: Expected graduation year
+  - `email`: Yale email address
+- Used for authentication and basic student information
 
-- **DistributionTypes** - Defines different types of distribution requirements
-  - Categories: Skills (QR, WR, L) and Disciplinary (Hu, Sc, So)
-  - Tracks name, code, and description
+### Major-Related Tables
 
-- **AcademicYears** - Defines the four academic years and their requirements
-  - Tracks year name, display order, and description
+**Majors**
+- Defines available majors at Yale
+- Fields:
+  - `major_id` (PK): Unique identifier
+  - `major_name`: Full name of the major
+  - `major_code`: Department code (e.g., "CPSC")
+  - `department`: Department name
+  - `description`: Detailed major description
 
-- **DistributionRequirements** - Maps requirements to academic years
-  - Specifies number of courses required for each distribution type per year
-  - Tracks active status and timestamps
+**MajorVersions**
+- Tracks different versions of major requirements over time
+- Fields:
+  - `major_version_id` (PK): Unique identifier
+  - `major_id` (FK): References Majors
+  - `catalog_year`: Academic year of this version
+  - `effective_term`, `valid_until_term`: Validity period
+  - `is_active`: Whether this version is current
+  - `notes`: Changes or special considerations
 
-- **YearRequirementRules** - Defines special rules for each year
-  - Examples: "2 of 3 skills categories for Freshman"
-  - Supports different rule types and categories
+**StudentMajors**
+- Links students to their declared majors
+- Fields:
+  - `student_major_id` (PK): Unique identifier
+  - `student_id` (FK): References Students
+  - `major_version_id` (FK): References MajorVersions
+  - `declaration_date`: When the major was declared
+  - `is_primary_major`: Boolean for primary/secondary status
 
-Refer to the ERD documentation for more details on the database schema.
+### Course-Related Tables
+
+**Courses**
+- Comprehensive course catalog
+- Fields:
+  - `course_id` (PK): Unique identifier
+  - `subject_code`: Department code
+  - `course_number`: Course number within department
+  - `course_title`: Full course name
+  - `description`: Course description
+  - `credits`: Number of credits
+  - `distribution`: Distribution requirement codes
+
+**StudentCourseEnrollments**
+- Tracks completed and current courses
+- Fields:
+  - `enrollment_id` (PK): Unique identifier
+  - `student_id` (FK): References Students
+  - `course_id` (FK): References Courses
+  - `term_taken`: Academic term
+  - `grade`: Course grade
+  - `status`: 'Completed', 'Enrolled', or 'Withdrawn'
+
+**StudentCoursePlans**
+- Future course planning
+- Fields:
+  - `plan_id` (PK): Unique identifier
+  - `student_id` (FK): References Students
+  - `course_id` (FK): References Courses
+  - `intended_term`: Planned term
+  - `priority`: Student's priority level
+  - `notes`: Planning notes
+
+### Requirement Structure
+
+**MajorRequirements**
+- Top-level requirements for each major
+- Fields:
+  - `requirement_id` (PK): Unique identifier
+  - `major_version_id` (FK): References MajorVersions
+  - `requirement_name`: Name of requirement
+  - `requirement_type`: 'Prerequisite', 'Core', 'Elective', or 'Capstone'
+  - `min_courses`, `max_courses`: Course count limits
+  - `min_credits`, `max_credits`: Credit limits
+
+**RequirementGroups**
+- Subdivides requirements into specific groups
+- Fields:
+  - `requirement_group_id` (PK): Unique identifier
+  - `requirement_id` (FK): References MajorRequirements
+  - `group_name`: Name of the group
+  - `group_operator`: 'AND' or 'OR'
+  - `min_courses_in_group`, `max_courses_in_group`: Course limits
+  - `group_description`: Detailed description
+
+**RequirementGroupCourses**
+- Maps courses to requirement groups
+- Fields:
+  - `req_group_course_id` (PK): Unique identifier
+  - `requirement_group_id` (FK): References RequirementGroups
+  - `course_id` (FK): References Courses
+  - `is_required_in_group`: Whether course is mandatory
+
+### Course Relationships
+
+**CoursePrerequisites**
+- Defines prerequisite relationships
+- Fields:
+  - `course_id` (FK): The main course
+  - `prereq_course_id` (FK): The prerequisite course
+  - `concurrency_allowed`: Can be taken simultaneously
+
+**EquivalenceGroups**
+- Defines groups of equivalent courses
+- Fields:
+  - `eq_group_id` (PK): Unique identifier
+  - `group_name`: Name of the equivalence group
+  - `group_notes`: Additional information
+
+**EquivalenceGroupCourses**
+- Maps courses to equivalence groups
+- Fields:
+  - `eq_group_course_id` (PK): Unique identifier
+  - `eq_group_id` (FK): References EquivalenceGroups
+  - `course_id` (FK): References Courses
+
+### Distribution Requirements
+
+**DistributionTypes**
+- Defines types of distribution requirements
+- Fields:
+  - `distribution_id` (PK): Unique identifier
+  - `code`: Short code (e.g., "QR", "WR")
+  - `name`: Full name
+  - `description`: Detailed description
+  - `category`: Either 'skills' or 'disciplinary'
+
+**AcademicYears**
+- Defines the four academic years
+- Fields:
+  - `year_id` (PK): Unique identifier
+  - `name`: Year name (e.g., "Freshman")
+  - `display_order`: Ordering (1-4)
+  - `description`: Year-specific information
+
+**DistributionRequirements**
+- Maps requirements to academic years
+- Fields:
+  - `requirement_id` (PK): Unique identifier
+  - `year_id` (FK): References AcademicYears
+  - `distribution_id` (FK): References DistributionTypes
+  - `courses_required`: Number of courses needed
+  - `active`: Whether requirement is current
+  - `created_at`, `updated_at`: Timestamps
+
+**YearRequirementRules**
+- Special rules for distribution requirements
+- Fields:
+  - `rule_id` (PK): Unique identifier
+  - `year_id` (FK): References AcademicYears
+  - `rule_type`: Type of rule
+  - `value`: Numeric requirement
+  - `category`: Applies to 'skills' or 'disciplinary'
+  - `active`: Whether rule is current
+
+### Database Features
+
+- **Foreign Key Constraints**: Ensure referential integrity between tables
+- **Unique Constraints**: Prevent duplicate entries (e.g., NetIDs)
+- **Check Constraints**: Validate data (e.g., grade values)
+- **Default Values**: Automatic timestamps and boolean flags
+- **Indexes**: Optimized for common queries and joins
 
 ## Development
 
 ### Adding New Features
 
 1. Cacheing
+2. Better login checking (just querying supabase table for login is not safe)
 
 
 
