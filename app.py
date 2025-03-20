@@ -159,11 +159,11 @@ def create_app(config=None):
 def main():
     """Run the application."""
     # Get port from environment variable or use default
-    port = active_config.PORT
+    port = int(os.environ.get("PORT", 5000))
     
     # Create and run the application
     app = create_app()
-    app.run(host='127.0.0.1', port=port, debug=app.config['DEBUG'])
+    app.run(host='0.0.0.0', port=port, debug=False)
 
 
 if __name__ == '__main__':

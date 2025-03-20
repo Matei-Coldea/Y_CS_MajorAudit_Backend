@@ -535,6 +535,155 @@ yale-degree-audit/
 
 5. Access the API at http://localhost:5000
 
+### Deploying to Heroku
+
+1. **Prerequisites**
+   - [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli) installed
+   - Heroku account
+   - Git repository initialized
+
+2. **Prepare the Application**
+
+   Create a `Procfile` in the root directory:
+   ```
+   web: gunicorn app:app
+   ```
+
+   Update `requirements.txt` to include Heroku-specific packages:
+   ```
+   gunicorn==21.2.0
+   psycopg2-binary==2.9.9
+   ```
+
+   Ensure your `app.py` uses environment variables for configuration:
+   ```python
+   port = int(os.environ.get("PORT", 5000))
+   app.run(host="0.0.0.0", port=port)
+   ```
+
+3. **Create Heroku Application**
+   ```bash
+   # Login to Heroku
+   heroku login
+
+   # Create new Heroku app
+   heroku create yale-degree-audit
+
+   # Add PostgreSQL addon
+   heroku addons:create heroku-postgresql:mini
+   ```
+
+4. **Configure Environment Variables**
+   ```bash
+   # Set required environment variables
+   heroku config:set SUPABASE_URL=your_supabase_url
+   heroku config:set SUPABASE_KEY=your_supabase_key
+   heroku config:set FLASK_ENV=production
+   heroku config:set SECRET_KEY=your_secret_key
+   ```
+
+5. **Deploy the Application**
+   ```bash
+   # Push code to Heroku
+   git push heroku main
+
+   # Ensure at least one instance is running
+   heroku ps:scale web=1
+   ```
+
+6. **Initialize the Database**
+   ```bash
+   # Connect to Heroku PostgreSQL
+   heroku pg:psql
+
+   # Run your database initialization script
+   \i migration/mock_database_init.sql
+   ```
+
+7. **Verify Deployment**
+   ```bash
+   # Open the application
+   heroku open
+
+   # Check application logs
+   heroku logs --tail
+   ```
+
+8. **Monitoring and Maintenance**
+   - Monitor application performance:
+     ```bash
+     heroku ps
+     heroku metrics:web
+     ```
+   - Check database status:
+     ```bash
+     heroku pg:info
+     ```
+   - Database backups:
+     ```bash
+     heroku pg:backups:capture
+     heroku pg:backups:download
+     ```
+
+9. **Troubleshooting**
+   - If the application crashes:
+     ```bash
+     heroku logs --tail
+     ```
+   - If database connections fail:
+     ```bash
+     heroku pg:diagnose
+     ```
+   - To restart the application:
+     ```bash
+     heroku restart
+     ```
+
+10. **Scaling (if needed)**
+    ```bash
+    # Scale web dynos
+    heroku ps:scale web=2
+
+    # Upgrade database plan
+    heroku addons:upgrade heroku-postgresql:standard-0
+    ```
+
+11. **Custom Domain (Optional)**
+    ```bash
+    # Add custom domain
+    heroku domains:add your-domain.com
+
+    # View SSL certificate status
+    heroku certs:auto
+    ```
+
+### Important Heroku Deployment Notes
+
+1. **Database Considerations**
+   - Heroku PostgreSQL has connection limits based on your plan
+   - Use connection pooling for better performance
+   - Regular backups are recommended
+
+2. **Performance Optimization**
+   - Enable caching where possible
+   - Optimize database queries
+   - Use appropriate dyno sizes
+
+3. **Security**
+   - All environment variables should be set through Heroku config
+   - Enable SSL/TLS
+   - Regular security updates
+
+4. **Monitoring**
+   - Set up Heroku application metrics
+   - Configure error tracking (e.g., Sentry)
+   - Regular log review
+
+5. **Cost Management**
+   - Monitor dyno and database usage
+   - Scale resources appropriately
+   - Set up billing alerts
+
 ## Database Schema
 
 The application uses a PostgreSQL database with the following structure:
